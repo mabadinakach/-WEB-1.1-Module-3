@@ -55,7 +55,19 @@ def compliments():
 @app.route('/compliments_results')
 def compliments_results():
     """Show the user some compliments."""
+    num_compliments = request.args.get("num_compliments")
+    compliments = []
+    try:
+        compliments = random.sample(list_of_compliments, int(num_compliments))
+    except Exception:
+        compliments = []
+    
+    
     context = {
+        "users_name":request.args.get("users_name"),
+        "compliments":compliments,
+        "wants_compliments":request.args.get("wants_compliments"),
+        "len_compliments":len(compliments)
         # TODO: Enter your context variables here.
     }
 
@@ -79,11 +91,18 @@ def animal_facts():
     """Show a form to choose an animal and receive facts."""
 
     # TODO: Collect the form data and save as variables
+    animals = animal_to_fact.keys()
+    len_animals = len(animals)
+    users_animal = request.args.get("animal")
+    animal_fact = ""
+    if users_animal is not None:
+        animal_fact = animal_to_fact[users_animal]
 
     context = {
-        # TODO: Enter your context variables here for:
-        # - the list of all animals (get from animal_to_fact)
-        # - the chosen animal fact (may be None if the user hasn't filled out the form yet)
+        "len_animals":len_animals,
+        "animals":animals,
+        "users_animal":users_animal,
+        "animal_fact":animal_fact
     }
     return render_template('animal_facts.html', **context)
 
@@ -128,35 +147,45 @@ def apply_filter(file_path, filter_name):
 @app.route('/image_filter', methods=['GET', 'POST'])
 def image_filter():
     """Filter an image uploaded by the user, using the Pillow library."""
-    filter_types = filter_types_dict.keys()
+    filter_types = list(filter_types_dict.keys())
+    print(filter_types)
 
     if request.method == 'POST':
         
         # TODO: Get the user's chosen filter type (whichever one they chose in the form) and save
         # as a variable
         # HINT: remember that we're working with a POST route here so which requests function would you use?
-        filter_type = ''
+        filter_type = request.form.get("filter_type")
+        print(filter_type)
         
         # Get the image file submitted by the user
         image = request.files.get('users_image')
 
         # TODO: call `save_image()` on the image & the user's chosen filter type, save the returned
         # value as the new file path
+        file_path = save_image(image, filter_type)
 
         # TODO: Call `apply_filter()` on the file path & filter type
+        error = False
+
+        try:
+            apply_filter(file_path, filter_type)
+        except Exception:
+            error = True
 
         image_url = f'./static/images/{image.filename}'
 
         context = {
-            # TODO: Add context variables here for:
-            # - The full list of filter types
-            # - The image URL
+            "filter_types":filter_types,
+            "image_url":image_url,
+            "error":error,
         }
 
         return render_template('image_filter.html', **context)
 
     else: # if it's a GET request
         context = {
+            "filter_types":filter_types,
             # TODO: Add context variable here for the full list of filter types
         }
         return render_template('image_filter.html', **context)
@@ -168,6 +197,7 @@ def image_filter():
 
 
 API_KEY = os.getenv('API_KEY')
+print("gif")
 print(API_KEY)
 
 TENOR_URL = 'https://api.tenor.com/v1/search'
@@ -183,6 +213,9 @@ def gif_search():
         response = requests.get(
             TENOR_URL,
             {
+                "q":request.form.get("search_query"),
+                "key":API_KEY,
+                "limit":request.form.get("quantity")
                 # TODO: Add in key-value pairs for:
                 # - 'q': the search query
                 # - 'key': the API key (defined above)
@@ -190,13 +223,17 @@ def gif_search():
             })
 
         gifs = json.loads(response.content).get('results')
+        gifs_urls = []
+        for i in range(len(gifs)):
+            gifs_urls.append(gifs[i]['media'][0]['gif']['url'])
 
         context = {
-            'gifs': gifs
+            'gifs': gifs,
+            "gifs_urls":gifs_urls
         }
 
         # Uncomment me to see the result JSON!
-        # pp.pprint(gifs)
+        #p.pprint(gifs)
 
         return render_template('gif_search.html', **context)
     else:
